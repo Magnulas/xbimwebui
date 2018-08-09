@@ -2,9 +2,11 @@
   "name": "xbimwebui",
   "version": "0.1.41",
   "description": "A viewer for XBIM files, based on the XbimWebUI.",
-  "main": "viewer.ts",
-  "types": "viewer.d.ts",
+  "main": "dist/viewer.js",
+  "types": "dist/viewer.d.ts",
   "scripts": {
+    "build": "tsc",
+    "lint": "tslint -p tsconfig.json",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -21,5 +23,10 @@
   "bugs": {
     "url": "https://github.com/Madaster/xbimwebui/issues"
   },
-  "homepage": "https://github.com/Madaster/xbimwebui#readme"
+  "homepage": "https://github.com/Madaster/xbimwebui#readme",
+  "devDependencies": {
+    "@types/node": "^10.5.7",
+    "tslint": "^5.11.0",
+    "typescript": "^3.0.1"
+  }
 }
