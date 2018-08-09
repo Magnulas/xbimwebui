@@ -1,6 +1,6 @@
 {
-  "name": "@madaster/xbimwebui",
-  "version": "0.1.41",
+  "name": "@madaster/xbimwebui-viewer",
+  "version": "0.2.0",
   "description": "A viewer for XBIM files, based on the XbimWebUI.",
   "main": "dist/viewer.js",
   "types": "dist/viewer.d.ts",
