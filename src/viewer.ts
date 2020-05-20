@@ -7,9 +7,9 @@ import { Shaders } from './shaders/shaders';
 
 //ported libraries
 import { WebGLUtils } from './common/webgl-utils';
-import { vec3 } from "./matrix/vec3";
-import { mat3 } from "./matrix/mat3";
-import { mat4 } from "./matrix/mat4";
+import * as vec3 from "gl-matrix-ts/dist/vec3";
+import * as mat3 from "gl-matrix-ts/dist/mat3";
+import * as mat4 from "gl-matrix-ts/dist/mat4";
 
 //reexport these classes to make them available when viewer is the root package
 export { State } from './state';
@@ -37,7 +37,7 @@ export class Viewer {
             throw 'Canvas has to be defined';
         }
 
-        if (typeof (canvas['nodeName']) != 'undefined' && canvas['nodeName'] === 'CANVAS') {
+        if (typeof (canvas['nodeName']) != 'undefined' && canvas['nodeName'].toLowerCase() === 'canvas') {
             this._canvas = <HTMLCanvasElement>canvas;
         }
         if (typeof (canvas) == 'string') {
@@ -192,7 +192,7 @@ export class Viewer {
         this._lastStates = {};
         this._visualStateAttributes = [
             'perspectiveCamera', 'orthogonalCamera', 'camera', 'background', 'lightA', 'lightB',
-            'renderingMode', '_clippingA', '_clippingB', 'mvMatrix', '_pMatrix', '_distance', '_origin', 'highlightingColour',
+            'renderingMode', '_clippingA', '_clippingB', 'mvMatrix', 'pMatrix', '_distance', '_origin', 'highlightingColour',
             '_numberOfActiveModels', "_width", "_height"
         ];
         this._stylingChanged = true;
@@ -209,7 +209,7 @@ export class Viewer {
 
         //transformation matrices
         this.mvMatrix = mat4.create(); //world matrix
-        this._pMatrix = mat4.create(); //camera matrix (this can be either perspective or orthogonal camera)
+        this.pMatrix = mat4.create(); //camera matrix (this can be either perspective or orthogonal camera)
 
         //Navigation settings - coordinates in the WCS of the origin used for orbiting and panning
         this._origin = [0, 0, 0]
@@ -305,8 +305,13 @@ export class Viewer {
     public mvMatrix: Float32Array;
 
     private _fpt: any;
-    private _pMatrix: any;
+    public pMatrix: any;
     private _pointers: ModelPointers;
+    private counter: number
+/*
+    canvas(){
+        return this._canvas
+    }*/
 
     /**
     * This is a static function which should always be called before Viewer is instantiated.
@@ -599,6 +604,14 @@ export class Viewer {
         return pType;
     }
 
+    public getProducts(id: number) {
+        var handle =this._handles[id]
+        if(handle == null)
+            throw "Model doesn't exist";
+
+        return handle.getProducts();
+    }
+
     /**
     * Use this method to set position of camera. Use it after {@link Viewer#setCameraTarget setCameraTarget()} to get desired result.
     * 
@@ -608,6 +621,8 @@ export class Viewer {
     public setCameraPosition(coordinates: number[]) {
         if (typeof (coordinates) == 'undefined') throw 'Parameter coordinates must be defined';
         mat4.lookAt(this.mvMatrix, coordinates, this._origin, [0, 0, 1]);
+        
+        this.fire('navigated', {frame: this.counter})
     }
 
     /**
@@ -931,8 +946,8 @@ export class Viewer {
 
             //get coordinates within canvas (with the right orientation)
             var r = viewer._canvas.getBoundingClientRect();
-            var viewX = startX - r.left;
-            var viewY = viewer._height - (startY - r.top);
+            var viewX = viewer._width*((startX - r.left)/r.width)//startX - r.left;
+            var viewY = viewer._height*(1-((startY - r.top)/r.height))//viewer._height - (startY - r.top);
 
             //this is for picking
             id = viewer.getID(viewX, viewY);
@@ -1089,8 +1104,8 @@ export class Viewer {
         //attach callbacks
         this._canvas.addEventListener('mousedown', (event) => handleMouseDown(event), true);
         this._canvas.addEventListener('wheel', (event) => handleMouseScroll(event), true);
-        window.addEventListener('mouseup', (event) => handleMouseUp(event), true);
-        window.addEventListener('mousemove', (event) => handleMouseMove(event), true);
+        this._canvas.addEventListener('mouseup', (event) => handleMouseUp(event), true);
+        this._canvas.addEventListener('mousemove', (event) => handleMouseMove(event), true);
 
         this._canvas.addEventListener('mousemove',
             () => {
@@ -1295,7 +1310,7 @@ export class Viewer {
 
         //movement factor needs to be dependant on the distance but one meter is a minimum so that movement wouldn't stop when camera is in 0 distance from navigation origin
         var distanceVec = vec3.subtract(vec3.create(), origin, camera);
-        var distance = Math.max(vec3.vectorLength(distanceVec), this._handles[0].model.meter);
+        var distance = Math.max(vec3.length(distanceVec), this._handles[0].model.meter);
 
         //move to the navigation origin in view space
         var transform = mat4.translate(mat4.create(), mat4.create(), mvOrigin)
@@ -1343,7 +1358,9 @@ export class Viewer {
         transform = mat4.translate(mat4.create(), transform, translation);
 
         //apply transformation in right order
-        this.mvMatrix = mat4.multiply(mat4.create(), transform, this.mvMatrix);
+        this.mvMatrix = mat4.multiply(mat4.create(), transform, this.mvMatrix) as Float32Array;
+
+        this.fire('navigated', {frame: this.counter})
     }
 
     /**
@@ -1384,7 +1401,7 @@ export class Viewer {
         //set up camera
         switch (this.camera) {
             case 'perspective':
-                mat4.perspective(this._pMatrix,
+                mat4.perspective(this.pMatrix,
                     this.perspectiveCamera.fov * Math.PI / 180.0,
                     this._width / this._height,
                     this.perspectiveCamera.near,
@@ -1392,7 +1409,7 @@ export class Viewer {
                 break;
 
             case 'orthogonal':
-                mat4.ortho(this._pMatrix,
+                mat4.ortho(this.pMatrix,
                     this.orthogonalCamera.left,
                     this.orthogonalCamera.right,
                     this.orthogonalCamera.bottom,
@@ -1402,7 +1419,7 @@ export class Viewer {
                 break;
 
             default:
-                mat4.perspective(this._pMatrix,
+                mat4.perspective(this.pMatrix,
                     this.perspectiveCamera.fov * Math.PI / 180.0,
                     this._width / this._height,
                     this.perspectiveCamera.near,
@@ -1411,7 +1428,7 @@ export class Viewer {
         }
 
         //set uniforms (these may quickly change between calls to draw)
-        gl.uniformMatrix4fv(this._pMatrixUniformPointer, false, this._pMatrix);
+        gl.uniformMatrix4fv(this._pMatrixUniformPointer, false, this.pMatrix);
         gl.uniformMatrix4fv(this._mvMatrixUniformPointer, false, this.mvMatrix);
         gl.uniform4fv(this._lightAUniformPointer, new Float32Array(this.lightA));
         gl.uniform4fv(this._lightBUniformPointer, new Float32Array(this.lightB));
@@ -1524,7 +1541,7 @@ export class Viewer {
     */
     public getCameraPosition(): Float32Array {
         var transform = mat4.create();
-        mat4.multiply(transform, this._pMatrix, this.mvMatrix);
+        mat4.multiply(transform, this.pMatrix, this.mvMatrix);
         var inv = mat4.create()
         mat4.invert(inv, transform);
         var eye = vec3.create();
@@ -1546,13 +1563,15 @@ export class Viewer {
         var eye = this.getCameraPosition();
         var dir = vec3.create();
         vec3.subtract(dir, eye, this._origin);
-        dir = vec3.normalize(vec3.create(), dir);
+        dir = vec3.normalize(vec3.create(), dir) as Float32Array;
 
         var translation = vec3.create();
         vec3.scale(translation, dir, this._distance * 1.2);
         vec3.add(eye, translation, this._origin);
 
         mat4.lookAt(this.mvMatrix, eye, this._origin, [0, 0, 1]);
+        
+        this.fire('navigated', {frame: this.counter})
         return true;
     }
 
@@ -1584,8 +1603,7 @@ export class Viewer {
                     [origin[0] * -1.0, origin[1] * +1.0, (origin[2] + distance) * -1]);
                 var rotationY = mat4.rotateY(mat4.create(), toOrigin, Math.PI);
                 var rotationZ = mat4.rotateZ(mat4.create(), rotationY, Math.PI);
-                this
-                    .mvMatrix = rotationZ;
+                this.mvMatrix = rotationZ as Float32Array;
                 // mat4.translate(mat4.create(), rotationZ, [0, 0, -1.0 * distance]);
                 return;
 
@@ -1606,6 +1624,8 @@ export class Viewer {
         }
         //use look-at function to set up camera and target
         mat4.lookAt(this.mvMatrix, camera, origin, heading);
+        
+        this.fire('navigated',null)
     }
 
     public error(msg) {
@@ -1755,12 +1775,12 @@ export class Viewer {
         this._isRunning = true;
         var viewer = this;
         var lastTime = new Date();
-        var counter = 0;
+        this.counter = 0;
 
         function tick() {
-            counter++;
-            if (counter == 30) {
-                counter = 0;
+            viewer.counter++;
+            if (viewer.counter == 30) {
+                viewer.counter = 0;
                 var newTime = new Date();
                 var span = newTime.getTime() - lastTime.getTime();
                 lastTime = newTime;
@@ -2056,7 +2076,7 @@ export class Viewer {
 
             //get inverse transformation
             var transform = mat4.create();
-            mat4.multiply(transform, viewer._pMatrix, viewer.mvMatrix);
+            mat4.multiply(transform, viewer.pMatrix, viewer.mvMatrix);
             var inverse = mat4.create();
             mat4.invert(inverse, transform);
 
@@ -2092,8 +2112,8 @@ export class Viewer {
             //clean
             svg.parentNode.removeChild(svg);
             svg.removeEventListener('mousedown', handleMouseDown, true);
-            window.removeEventListener('mouseup', handleMouseUp, true);
-            window.removeEventListener('mousemove', handleMouseMove, true);
+            viewer._canvas.removeEventListener('mouseup', handleMouseUp, true);
+            viewer._canvas.removeEventListener('mousemove', handleMouseMove, true);
         };
 
         var handleMouseMove = function (event) {
@@ -2118,14 +2138,14 @@ export class Viewer {
         //this._canvas.parentNode.appendChild(svg);
         document.documentElement.appendChild(svg)
         svg.addEventListener('mousedown', handleMouseDown, true);
-        window.addEventListener('mouseup', handleMouseUp, true);
-        window.addEventListener('mousemove', handleMouseMove, true);
+        viewer._canvas.addEventListener('mouseup', handleMouseUp, true);
+        viewer._canvas.addEventListener('mousemove', handleMouseMove, true);
 
         this.stopClipping = function () {
             svg.parentNode.removeChild(svg);
             svg.removeEventListener('mousedown', handleMouseDown, true);
-            window.removeEventListener('mouseup', handleMouseUp, true);
-            window.removeEventListener('mousemove', handleMouseMove, true);
+            viewer._canvas.removeEventListener('mouseup', handleMouseUp, true);
+            viewer._canvas.removeEventListener('mousemove', handleMouseMove, true);
             //clear also itself
             viewer.stopClipping = function () { };
         };

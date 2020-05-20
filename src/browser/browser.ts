@@ -57,6 +57,10 @@ export class Browser {
     private _culture: any;
     private _templates: any = {};
 
+get model(){
+    return this._model
+}
+
 _compileTemplate (str) {
     // Based on Simple JavaScript Templating
     // John Resig - http://ejohn.org/ - MIT Licensed
@@ -562,7 +566,7 @@ load (source) {
         fReader.onloadend = function () {
             if (fReader.result) {
                 //set data buffer for next processing
-                var data = JSON.parse(fReader.result);
+                var data = JSON.parse(fReader.result as string);
 
                 //set right utils according to the data type
                 var uk = typeof (data.FacilityDefaultLinearUnit) === "undefined";

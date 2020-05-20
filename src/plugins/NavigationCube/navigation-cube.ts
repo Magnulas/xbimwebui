@@ -1,9 +1,9 @@
 ﻿import { IPlugin, Viewer } from "../../viewer";
 import { CubeShaders } from "./navigation-cube-shaders";
 import { CubeTextures } from "./navigation-cube-textures";
-import { mat4 } from "../../matrix/mat4";
-import { mat3 } from "../../matrix/mat3";
-import { vec3 } from "../../matrix/vec3";
+import * as mat4 from "gl-matrix-ts/dist/mat4"
+import * as mat3 from "gl-matrix-ts/dist/mat3"
+import * as vec3 from "gl-matrix-ts/dist/vec3"
 
 
 export class NavigationCube implements IPlugin {
@@ -401,7 +401,7 @@ export class NavigationCube implements IPlugin {
             var heading = vec3.fromValues(0, 0, 1);
             var origin = vec3.fromValues(o[0], o[1], o[2]);
 
-            dir = vec3.normalize(vec3.create(), dir);
+            dir = vec3.normalize(vec3.create(), dir) as Float32Array;
             var shift = vec3.scale(vec3.create(), dir, distance);
             var camera = vec3.add(vec3.create(), origin, shift);
 

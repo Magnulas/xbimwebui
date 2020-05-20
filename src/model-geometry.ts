@@ -124,12 +124,8 @@ export class ModelGeometry {
             var prodType = br.readInt16();
             var bBox = br.readFloat32Array(6);
 
-            var map = {
-                productID: productLabel,
-                type: prodType,
-                bBox: bBox,
-                spans: []
-            };
+            var map = new ProductMap(productLabel,prodType,bBox,[])
+            
             this.productMaps[productLabel] = map;
         }
 
@@ -182,12 +178,7 @@ export class ModelGeometry {
                 var map = this.productMaps[shape.pLabel];
                 if (typeof (map) === "undefined") {
                     //throw "Product hasn't been defined before.";
-                    map = {
-                        productID: 0,
-                        type: typeEnum.IFCOPENINGELEMENT,
-                        bBox: new Float32Array(6),
-                        spans: []
-                    };
+                    map =  new ProductMap(0,typeEnum.IFCOPENINGELEMENT,new Float32Array(6),[]);
                     this.productMaps[shape.pLabel] = map;
                 }
 
@@ -257,10 +248,19 @@ export class ModelGeometry {
 
 
 export class ProductMap {
-    productID: number;
-    type: ProductType;
-    bBox: Float32Array;
-    spans: Array<Int32Array>;
+    constructor(public productID: number,
+        public type: ProductType,
+        public bBox: Float32Array,
+        public spans: Array<Int32Array>){
+
+        }
+    /**
+     * getOrigin
+     */
+    public getOrigin() {
+        let bbox = this.bBox;
+        return [bbox[0] + bbox[3] / 2.0, bbox[1] + bbox[4] / 2.0, bbox[2] + bbox[5] / 2.0]
+    }
 }
 
 export class Region {

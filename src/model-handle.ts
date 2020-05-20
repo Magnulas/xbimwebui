@@ -220,6 +220,10 @@ export class ModelHandle {
         return result;
     }
 
+    public getProducts(): ProductMap[] {
+        return Object.keys(this.model.productMaps).map(k=>this.model.productMaps[k])
+    }
+
     public unload() {
         var gl = this._gl;
 
